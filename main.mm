@@ -176,7 +176,7 @@
       layer.position = CGPointMake(100, 100);
       layer.bounds = CGRectMake(0, 0, 1920, 1080);
       layer.contents =
-          [IOSurface ioSurfaceYUVWithSize:NSMakeSize(400, 400)
+          [IOSurface ioSurfaceYUVWithSize:NSMakeSize(1920, 1080)
                                flipped:YES
                         drawingHandler:^(NSRect dstRect) {
                           [[NSColor greenColor] set];
