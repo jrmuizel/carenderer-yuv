@@ -4,6 +4,7 @@
 
 
 // ffmpeg -i chip-chart-1080.mp4 -pix_fmt nv12 -f segment -segment_time 0.001   chip-chart-%d.yuv
+// ffmpeg -i chip-chart-1080.mp4 -pix_fmt yuyv422 -f segment -segment_time 0.001   chip-chart-%d.yuv
 #define GL_SILENCE_DEPRECATION
 
 #import <Cocoa/Cocoa.h>
@@ -176,7 +177,7 @@
       layer.position = CGPointMake(100, 100);
       layer.bounds = CGRectMake(0, 0, 1920, 1080);
       layer.contents =
-          [IOSurface ioSurfaceYUVWithSize:NSMakeSize(1920, 1080)
+          [IOSurface ioSurfaceYUV422WithSize:NSMakeSize(1920, 1080)
                                flipped:YES
                         drawingHandler:^(NSRect dstRect) {
                           [[NSColor greenColor] set];
@@ -206,7 +207,7 @@
   CALayer* layer = [self makeScene:sceneIndex scale:1.0];
   self.wantsLayer = YES;
   // [[self layer] addSublayer:layer];
-  layer.geometryFlipped = YES;
+  layer.geometryFlipped = NO;
   [NSAnimationContext endGrouping];
   // return nil;
   return [renderer imageByRenderingLayer:layer intoSceneOfSize:NSMakeSize(3026, 1822) withScale:1.0];
@@ -583,7 +584,7 @@ static void Uint8ArrayDelete(void* info, const void* data, size_t size) { delete
   assert(surface);
   //[surface setAttachment:@"kCGColorSpaceAdobeRGB1998" forKey: @"IOSurfaceColorSpace"];
   [surface lockWithOptions:0 seed:nil];
-  FILE *f = fopen("frames300.yuv", "r");
+  FILE *f = fopen("chip-chart.yuv", "r");
   int off = fread(surface.baseAddress, 1, 1920*1080 + 1920*1080/2, f);
   printf("%d\n", off);
   fclose(f);
@@ -591,4 +592,28 @@ static void Uint8ArrayDelete(void* info, const void* data, size_t size) { delete
 
   return [surface autorelease];
 }
++ (IOSurface*)ioSurfaceYUV422WithSize:(NSSize)size
+                        flipped:(BOOL)drawingHandlerShouldBeCalledWithFlippedContext
+                 drawingHandler:(void (^)(NSRect dstRect))drawingHandler {
+  int width = 1920;
+  int height = 1080;
+  IOSurface* surface = [[IOSurface alloc] initWithProperties:@{
+    IOSurfacePropertyKeyWidth : @(size.width),
+    IOSurfacePropertyKeyHeight : @(size.height),
+    IOSurfacePropertyKeyPixelFormat : @(kCVPixelFormatType_422YpCbCr8FullRange),
+    IOSurfacePropertyKeyBytesPerElement : @(2),
+    IOSurfacePropertyKeyAllocSize : @(1920*1080 + 1920*1080),
+  }];
+  assert(surface);
+  //[surface setAttachment:@"kCGColorSpaceAdobeRGB1998" forKey: @"IOSurfaceColorSpace"];
+  [surface lockWithOptions:0 seed:nil];
+  FILE *f = fopen("chip-chart-422.yuv", "r");
+  int off = fread(surface.baseAddress, 1, 1920*1080 + 1920*1080, f);
+  printf("%d\n", off);
+  fclose(f);
+  [surface unlockWithOptions:0 seed:nil];
+
+  return [surface autorelease];
+}
+
 @end
