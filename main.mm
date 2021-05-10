@@ -302,7 +302,11 @@ static void Uint8ArrayDelete(void* info, const void* data, size_t size) { delete
   NSOpenGLPixelFormat* format = [[NSOpenGLPixelFormat alloc] initWithAttributes:attribs];
   context_ = [[NSOpenGLContext alloc] initWithFormat:format shareContext:nullptr];
   [format release];
-  renderer_ = [[CARenderer rendererWithCGLContext:[context_ CGLContextObj] options:nil] retain];
+  CFMutableDictionaryRef options = CFDictionaryCreateMutable(
+      kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks,
+      &kCFTypeDictionaryValueCallBacks);
+  //CFDictionaryAddValue(options, kCARendererColorSpace, CGColorSpaceCreateDeviceRGB());
+  renderer_ = [[CARenderer rendererWithCGLContext:[context_ CGLContextObj] options:CFBridgingRelease(options)] retain];
 
   return self;
 }
