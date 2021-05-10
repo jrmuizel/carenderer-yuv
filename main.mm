@@ -1,4 +1,3 @@
-// clang-format off
 // % MACOSX_DEPLOYMENT_TARGET=10.9 clang++ main.mm -framework Cocoa -framework OpenGL -framework QuartzCore -framework IOSurface -o test && ./test
 // clang-format on
 
@@ -305,7 +304,10 @@ static void Uint8ArrayDelete(void* info, const void* data, size_t size) { delete
   CFMutableDictionaryRef options = CFDictionaryCreateMutable(
       kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks,
       &kCFTypeDictionaryValueCallBacks);
-  //CFDictionaryAddValue(options, kCARendererColorSpace, CGColorSpaceCreateDeviceRGB());
+  /*CFDictionaryAddValue(options, kCARendererColorSpace, 
+        CGColorSpaceCreateWithName(kCGColorSpaceSRGB));
+        //CGColorSpaceCreateWithName(kCGColorSpaceAdobeRGB1998));
+  */
   renderer_ = [[CARenderer rendererWithCGLContext:[context_ CGLContextObj] options:CFBridgingRelease(options)] retain];
 
   return self;
@@ -586,6 +588,8 @@ static void Uint8ArrayDelete(void* info, const void* data, size_t size) { delete
     IOSurfacePropertyKeyPlaneInfo : @[planeInfoY, planeInfoUV]
   }];
   assert(surface);
+  //[surface setAttachment:@"ITU_R_601_4" forKey: @"IOSurfaceYCbCrMatrix"];
+  //[surface setAttachment:@"ITU_R_709_2" forKey: @"IOSurfaceYCbCrMatrix"];
   //[surface setAttachment:@"kCGColorSpaceAdobeRGB1998" forKey: @"IOSurfaceColorSpace"];
   [surface lockWithOptions:0 seed:nil];
   FILE *f = fopen("chip-chart.yuv", "r");
@@ -604,12 +608,18 @@ static void Uint8ArrayDelete(void* info, const void* data, size_t size) { delete
   IOSurface* surface = [[IOSurface alloc] initWithProperties:@{
     IOSurfacePropertyKeyWidth : @(size.width),
     IOSurfacePropertyKeyHeight : @(size.height),
-    IOSurfacePropertyKeyPixelFormat : @(kCVPixelFormatType_422YpCbCr8FullRange),
+    //IOSurfacePropertyKeyPixelFormat : @(kCVPixelFormatType_422YpCbCr8FullRange),
+    IOSurfacePropertyKeyPixelFormat : @(kCVPixelFormatType_422YpCbCr8_yuvs),
     IOSurfacePropertyKeyBytesPerElement : @(2),
     IOSurfacePropertyKeyAllocSize : @(1920*1080 + 1920*1080),
   }];
   assert(surface);
-  //[surface setAttachment:@"kCGColorSpaceAdobeRGB1998" forKey: @"IOSurfaceColorSpace"];
+  auto colorSpace = CGDisplayCopyColorSpace(CGMainDisplayID());
+  NSData* colorData = (NSData*)CGColorSpaceCopyICCProfile(colorSpace);
+
+  //[surface setAttachment: colorData forKey: @"IOSurfaceColorSpace"];
+  //[surface setAttachment:@"ITU_R_601_4" forKey: @"IOSurfaceYCbCrMatrix"];
+  //[surface setAttachment:@"ITU_R_709_2" forKey: @"IOSurfaceYCbCrMatrix"];
   [surface lockWithOptions:0 seed:nil];
   FILE *f = fopen("chip-chart-422.yuv", "r");
   int off = fread(surface.baseAddress, 1, 1920*1080 + 1920*1080, f);
