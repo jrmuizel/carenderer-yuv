@@ -60,9 +60,9 @@
 @end
 
 @interface IOSurface (SurfaceWithSizeAndDrawingHandler)
-+ (IOSurface*)ioSurfaceWithSize:(NSSize)size
-                        flipped:(BOOL)drawingHandlerShouldBeCalledWithFlippedContext
-                 drawingHandler:(void (^)(NSRect dstRect))drawingHandler;
++ (IOSurface*)ioSurfaceRGB;
++ (IOSurface*)ioSurfaceYUV;
++ (IOSurface*)ioSurfaceYUV422;
 @end
 
 @interface RunLoopThread : NSThread
@@ -175,17 +175,7 @@
       layer.anchorPoint = CGPointZero;
       layer.position = CGPointMake(100, 100);
       layer.bounds = CGRectMake(0, 0, 1920, 1080);
-      layer.contents =
-          [IOSurface ioSurfaceYUVWithSize:NSMakeSize(1920, 1080)
-                               flipped:YES
-                        drawingHandler:^(NSRect dstRect) {
-                          [[NSColor greenColor] set];
-                          NSRectFill(dstRect);
-                          [[NSColor blueColor] set];
-                          [[NSBezierPath bezierPathWithRoundedRect:NSMakeRect(20, 20, 60, 60)
-                                                           xRadius:10
-                                                           yRadius:10] fill];
-                        }];
+      layer.contents = [IOSurface ioSurfaceYUV];
       CFShow([layer.contents allAttachments]);
       layer.contentsScale = 1;
       return layer;
@@ -210,7 +200,7 @@
   layer.geometryFlipped = NO;
   [NSAnimationContext endGrouping];
   // return nil;
-  return [renderer imageByRenderingLayer:layer intoSceneOfSize:NSMakeSize(3026, 1822) withScale:1.0];
+  return [renderer imageByRenderingLayer:layer intoSceneOfSize:NSMakeSize(3026, 1822) withScale:1.0];
 }
 
 - (void)drawRect:(NSRect)rect {
@@ -558,9 +548,7 @@ static void Uint8ArrayDelete(void* info, const void* data, size_t size) { delete
 
   return [surface autorelease];
 }
-+ (IOSurface*)ioSurfaceYUVWithSize:(NSSize)size
-                        flipped:(BOOL)drawingHandlerShouldBeCalledWithFlippedContext
-                 drawingHandler:(void (^)(NSRect dstRect))drawingHandler {
++ (IOSurface*)ioSurfaceYUV {
   int width = 1920;
   int height = 1080;
   id planeInfoY = @{
@@ -581,8 +569,8 @@ static void Uint8ArrayDelete(void* info, const void* data, size_t size) { delete
   };
 
   IOSurface* surface = [[IOSurface alloc] initWithProperties:@{
-    IOSurfacePropertyKeyWidth : @(size.width),
-    IOSurfacePropertyKeyHeight : @(size.height),
+    IOSurfacePropertyKeyWidth : @(width),
+    IOSurfacePropertyKeyHeight : @(height),
     IOSurfacePropertyKeyPixelFormat : @(kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange),
     IOSurfacePropertyKeyBytesPerElement : @(4),
     IOSurfacePropertyKeyAllocSize : @(1920*1080 + 1920*1080/2),
@@ -601,14 +589,12 @@ static void Uint8ArrayDelete(void* info, const void* data, size_t size) { delete
 
   return [surface autorelease];
 }
-+ (IOSurface*)ioSurfaceYUV422WithSize:(NSSize)size
-                        flipped:(BOOL)drawingHandlerShouldBeCalledWithFlippedContext
-                 drawingHandler:(void (^)(NSRect dstRect))drawingHandler {
++ (IOSurface*)ioSurfaceYUV422 {
   int width = 1920;
   int height = 1080;
   IOSurface* surface = [[IOSurface alloc] initWithProperties:@{
-    IOSurfacePropertyKeyWidth : @(size.width),
-    IOSurfacePropertyKeyHeight : @(size.height),
+    IOSurfacePropertyKeyWidth : @(width),
+    IOSurfacePropertyKeyHeight : @(height),
     //IOSurfacePropertyKeyPixelFormat : @(kCVPixelFormatType_422YpCbCr8FullRange),
     IOSurfacePropertyKeyPixelFormat : @(kCVPixelFormatType_422YpCbCr8_yuvs),
     IOSurfacePropertyKeyBytesPerElement : @(2),
@@ -635,14 +621,12 @@ static void Uint8ArrayDelete(void* info, const void* data, size_t size) { delete
 
   return [surface autorelease];
 }
-+ (IOSurface*)ioSurfaceRGBWithSize:(NSSize)size
-                        flipped:(BOOL)drawingHandlerShouldBeCalledWithFlippedContext
-                 drawingHandler:(void (^)(NSRect dstRect))drawingHandler {
++ (IOSurface*)ioSurfaceRGB {
   int width = 1920;
   int height = 1080;
   IOSurface* surface = [[IOSurface alloc] initWithProperties:@{
-    IOSurfacePropertyKeyWidth : @(size.width),
-    IOSurfacePropertyKeyHeight : @(size.height),
+    IOSurfacePropertyKeyWidth : @(width),
+    IOSurfacePropertyKeyHeight : @(height),
     IOSurfacePropertyKeyPixelFormat : @(kCVPixelFormatType_32ARGB),
     IOSurfacePropertyKeyBytesPerElement : @(4),
     IOSurfacePropertyKeyAllocSize : @(1920*1080*4),
