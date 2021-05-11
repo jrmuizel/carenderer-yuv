@@ -11,6 +11,8 @@
 #import <OpenGL/gl.h>
 #import <Metal/Metal.h>
 
+int SCENE_INDEX;
+
 @protocol MOZCARendererToImage
 - (NSImage*)imageByRenderingLayer:(CALayer*)layer
                   intoSceneOfSize:(NSSize)size
@@ -163,27 +165,26 @@
     NSLog(@"Can't commit CATransactions synchronously on the main thread");
     abort();
   }
-  img_ = [[self imageByRenderingSceneIndex:3 withRenderer:renderer_] retain];
+  img_ = [[self imageByRenderingSceneIndex:SCENE_INDEX withRenderer:renderer_] retain];
   [self setNeedsDisplay:YES];
 }
 
 + (CALayer*)makeScene:(int)sceneIndex scale:(CGFloat)scale {
+  CALayer* layer = [CALayer layer];
+  layer.backgroundColor = [[NSColor cyanColor] CGColor];
+  layer.anchorPoint = CGPointZero;
+  layer.position = CGPointMake(100, 100);
+  layer.bounds = CGRectMake(0, 0, 1920/2, 1080/2);
+
+  printf("SCENE: %d\n", sceneIndex);
   switch (sceneIndex) {
-    case 3: {
-      CALayer* layer = [CALayer layer];
-      layer.backgroundColor = [[NSColor cyanColor] CGColor];
-      layer.anchorPoint = CGPointZero;
-      layer.position = CGPointMake(100, 100);
-      layer.bounds = CGRectMake(0, 0, 1920, 1080);
-      layer.contents = [IOSurface ioSurfaceYUV];
-      CFShow([layer.contents allAttachments]);
-      layer.contentsScale = 1;
-      return layer;
-    }
-    default: {
-      return nil;
-    }
+    case 0: layer.contents = [IOSurface ioSurfaceRGB]; break;
+    case 1: layer.contents = [IOSurface ioSurfaceYUV]; break;
+    case 2: layer.contents = [IOSurface ioSurfaceYUV422]; break;
   }
+  CFShow([layer.contents allAttachments]);
+  layer.contentsScale = 1;
+  return layer;
 }
 
 - (NSImage*)imageByRenderingSceneIndex:(int)sceneIndex
@@ -234,7 +235,7 @@
 }
 
 - (void)updateLayer {
-  CALayer* layer = [MOZRenderToImageView makeScene:3 scale:1.0];
+  CALayer* layer = [MOZRenderToImageView makeScene:SCENE_INDEX scale:1.0];
   self.layer.sublayers = @[layer];
 }
 
@@ -250,6 +251,16 @@
 @end
 
 int main(int argc, char** argv) {
+  if (argc > 1) {
+    if (!strcmp(argv[1], "rgb")) {
+      SCENE_INDEX = 0;
+    } else if (!strcmp(argv[1], "yuv")) {
+      SCENE_INDEX = 1;
+    } else if (!strcmp(argv[1], "yuv422")) {
+      SCENE_INDEX = 2;
+    }
+  }
+
   NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
 
   [NSApplication sharedApplication];
