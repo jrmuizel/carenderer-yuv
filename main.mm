@@ -110,7 +110,7 @@
 
 @end
 
-@interface TestView : NSView {
+@interface MOZRenderToImageView : NSView {
   NSImage* img_;
   NSObject<MOZCARendererToImage>* renderer_;
   RunLoopThread* thread_;
@@ -118,7 +118,7 @@
 
 @end
 
-@implementation TestView
+@implementation MOZRenderToImageView
 
 - (id)initWithFrame:(NSRect)aFrame {
   if (self = [super initWithFrame:aFrame]) {
@@ -167,7 +167,7 @@
   [self setNeedsDisplay:YES];
 }
 
-- (CALayer*)makeScene:(int)sceneIndex scale:(CGFloat)scale {
++ (CALayer*)makeScene:(int)sceneIndex scale:(CGFloat)scale {
   switch (sceneIndex) {
     case 3: {
       CALayer* layer = [CALayer layer];
@@ -194,7 +194,7 @@
   }
   [NSAnimationContext beginGrouping];
   [CATransaction setDisableActions:YES];
-  CALayer* layer = [self makeScene:sceneIndex scale:1.0];
+  CALayer* layer = [MOZRenderToImageView makeScene:sceneIndex scale:1.0];
   self.wantsLayer = YES;
   // [[self layer] addSublayer:layer];
   layer.geometryFlipped = NO;
@@ -205,6 +205,37 @@
 
 - (void)drawRect:(NSRect)rect {
   [img_ drawInRect:[self bounds]];
+}
+
+@end
+
+@interface MOZLayerView : NSView
+
+@end
+
+@implementation MOZLayerView
+
+- (id)initWithFrame:(NSRect)aFrame {
+  self = [super initWithFrame:aFrame];
+  self.wantsLayer = YES;
+  return self;
+}
+
+- (void)dealloc {
+  [super dealloc];
+}
+
+- (BOOL)isFlipped {
+  return YES;
+}
+
+- (BOOL)wantsUpdateLayer {
+  return YES;
+}
+
+- (void)updateLayer {
+  CALayer* layer = [MOZRenderToImageView makeScene:3 scale:1.0];
+  self.layer.sublayers = @[layer];
 }
 
 @end
@@ -236,7 +267,7 @@ int main(int argc, char** argv) {
                                                    backing:NSBackingStoreBuffered
                                                      defer:NO];
 
-  NSView* view = [[TestView alloc]
+  NSView* view = [[MOZLayerView alloc]
       initWithFrame:NSMakeRect(0, 0, contentRect.size.width, contentRect.size.height)];
 
   [window setContentView:view];
