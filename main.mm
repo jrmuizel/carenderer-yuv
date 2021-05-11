@@ -597,6 +597,9 @@ static void Uint8ArrayDelete(void* info, const void* data, size_t size) { delete
     IOSurfacePropertyKeyPlaneWidth : @(width),
     IOSurfacePropertyKeyPlaneHeight : @(height),
     IOSurfacePropertyKeyPlaneBytesPerRow : @(width),
+    @"IOSurfacePlaneComponentBitDepths": @[@(8)],
+    @"IOSurfacePlaneComponentNames": @[@(5)],
+    @"IOSurfacePlaneComponentRanges": @[@(2)],
     IOSurfacePropertyKeyPlaneOffset : @(0),
     IOSurfacePropertyKeyPlaneSize: @(1920*1080),
     IOSurfacePropertyKeyBytesPerElement: @(1)
@@ -605,6 +608,9 @@ static void Uint8ArrayDelete(void* info, const void* data, size_t size) { delete
     IOSurfacePropertyKeyPlaneWidth : @(width/2),
     IOSurfacePropertyKeyPlaneHeight : @(height/2),
     IOSurfacePropertyKeyPlaneBytesPerRow : @(width),
+    @"IOSurfacePlaneComponentBitDepths": @[@(8), @(8)],
+    @"IOSurfacePlaneComponentNames": @[@(7), @(6)],
+    @"IOSurfacePlaneComponentRanges": @[@(2), @(2)],
     IOSurfacePropertyKeyPlaneOffset : @(1920*1080),
     IOSurfacePropertyKeyPlaneSize: @(1920*1080/2),
     IOSurfacePropertyKeyBytesPerElement: @(2)
