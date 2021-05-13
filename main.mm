@@ -11,6 +11,8 @@
 #import <OpenGL/gl.h>
 #import <Metal/Metal.h>
 
+int SCENE_INDEX;
+
 @protocol MOZCARendererToImage
 - (NSImage*)imageByRenderingLayer:(CALayer*)layer
                   intoSceneOfSize:(NSSize)size
@@ -60,9 +62,9 @@
 @end
 
 @interface IOSurface (SurfaceWithSizeAndDrawingHandler)
-+ (IOSurface*)ioSurfaceWithSize:(NSSize)size
-                        flipped:(BOOL)drawingHandlerShouldBeCalledWithFlippedContext
-                 drawingHandler:(void (^)(NSRect dstRect))drawingHandler;
++ (IOSurface*)ioSurfaceRGB;
++ (IOSurface*)ioSurfaceYUV;
++ (IOSurface*)ioSurfaceYUV422;
 @end
 
 @interface RunLoopThread : NSThread
@@ -110,7 +112,7 @@
 
 @end
 
-@interface TestView : NSView {
+@interface MOZRenderToImageView : NSView {
   NSImage* img_;
   NSObject<MOZCARendererToImage>* renderer_;
   RunLoopThread* thread_;
@@ -118,7 +120,7 @@
 
 @end
 
-@implementation TestView
+@implementation MOZRenderToImageView
 
 - (id)initWithFrame:(NSRect)aFrame {
   if (self = [super initWithFrame:aFrame]) {
@@ -163,37 +165,26 @@
     NSLog(@"Can't commit CATransactions synchronously on the main thread");
     abort();
   }
-  img_ = [[self imageByRenderingSceneIndex:3 withRenderer:renderer_] retain];
+  img_ = [[self imageByRenderingSceneIndex:SCENE_INDEX withRenderer:renderer_] retain];
   [self setNeedsDisplay:YES];
 }
 
-- (CALayer*)makeScene:(int)sceneIndex scale:(CGFloat)scale {
++ (CALayer*)makeScene:(int)sceneIndex scale:(CGFloat)scale {
+  CALayer* layer = [CALayer layer];
+  layer.backgroundColor = [[NSColor cyanColor] CGColor];
+  layer.anchorPoint = CGPointZero;
+  layer.position = CGPointMake(100, 100);
+  layer.bounds = CGRectMake(0, 0, 1920/2, 1080/2);
+
+  printf("SCENE: %d\n", sceneIndex);
   switch (sceneIndex) {
-    case 3: {
-      CALayer* layer = [CALayer layer];
-      layer.backgroundColor = [[NSColor cyanColor] CGColor];
-      layer.anchorPoint = CGPointZero;
-      layer.position = CGPointMake(100, 100);
-      layer.bounds = CGRectMake(0, 0, 1920, 1080);
-      layer.contents =
-          [IOSurface ioSurfaceYUVWithSize:NSMakeSize(1920, 1080)
-                               flipped:YES
-                        drawingHandler:^(NSRect dstRect) {
-                          [[NSColor greenColor] set];
-                          NSRectFill(dstRect);
-                          [[NSColor blueColor] set];
-                          [[NSBezierPath bezierPathWithRoundedRect:NSMakeRect(20, 20, 60, 60)
-                                                           xRadius:10
-                                                           yRadius:10] fill];
-                        }];
-      CFShow([layer.contents allAttachments]);
-      layer.contentsScale = 1;
-      return layer;
-    }
-    default: {
-      return nil;
-    }
+    case 0: layer.contents = [IOSurface ioSurfaceRGB]; break;
+    case 1: layer.contents = [IOSurface ioSurfaceYUV]; break;
+    case 2: layer.contents = [IOSurface ioSurfaceYUV422]; break;
   }
+  CFShow([layer.contents allAttachments]);
+  layer.contentsScale = 1;
+  return layer;
 }
 
 - (NSImage*)imageByRenderingSceneIndex:(int)sceneIndex
@@ -204,17 +195,48 @@
   }
   [NSAnimationContext beginGrouping];
   [CATransaction setDisableActions:YES];
-  CALayer* layer = [self makeScene:sceneIndex scale:1.0];
+  CALayer* layer = [MOZRenderToImageView makeScene:sceneIndex scale:1.0];
   self.wantsLayer = YES;
   // [[self layer] addSublayer:layer];
   layer.geometryFlipped = NO;
   [NSAnimationContext endGrouping];
   // return nil;
-  return [renderer imageByRenderingLayer:layer intoSceneOfSize:NSMakeSize(3026, 1822) withScale:1.0];
+  return [renderer imageByRenderingLayer:layer intoSceneOfSize:NSMakeSize(3026, 1822) withScale:1.0];
 }
 
 - (void)drawRect:(NSRect)rect {
   [img_ drawInRect:[self bounds]];
+}
+
+@end
+
+@interface MOZLayerView : NSView
+
+@end
+
+@implementation MOZLayerView
+
+- (id)initWithFrame:(NSRect)aFrame {
+  self = [super initWithFrame:aFrame];
+  self.wantsLayer = YES;
+  return self;
+}
+
+- (void)dealloc {
+  [super dealloc];
+}
+
+- (BOOL)isFlipped {
+  return YES;
+}
+
+- (BOOL)wantsUpdateLayer {
+  return YES;
+}
+
+- (void)updateLayer {
+  CALayer* layer = [MOZRenderToImageView makeScene:SCENE_INDEX scale:1.0];
+  self.layer.sublayers = @[layer];
 }
 
 @end
@@ -229,6 +251,16 @@
 @end
 
 int main(int argc, char** argv) {
+  if (argc > 1) {
+    if (!strcmp(argv[1], "rgb")) {
+      SCENE_INDEX = 0;
+    } else if (!strcmp(argv[1], "yuv")) {
+      SCENE_INDEX = 1;
+    } else if (!strcmp(argv[1], "yuv422")) {
+      SCENE_INDEX = 2;
+    }
+  }
+
   NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
 
   [NSApplication sharedApplication];
@@ -246,7 +278,7 @@ int main(int argc, char** argv) {
                                                    backing:NSBackingStoreBuffered
                                                      defer:NO];
 
-  NSView* view = [[TestView alloc]
+  NSView* view = [[MOZLayerView alloc]
       initWithFrame:NSMakeRect(0, 0, contentRect.size.width, contentRect.size.height)];
 
   [window setContentView:view];
@@ -558,15 +590,16 @@ static void Uint8ArrayDelete(void* info, const void* data, size_t size) { delete
 
   return [surface autorelease];
 }
-+ (IOSurface*)ioSurfaceYUVWithSize:(NSSize)size
-                        flipped:(BOOL)drawingHandlerShouldBeCalledWithFlippedContext
-                 drawingHandler:(void (^)(NSRect dstRect))drawingHandler {
++ (IOSurface*)ioSurfaceYUV {
   int width = 1920;
   int height = 1080;
   id planeInfoY = @{
     IOSurfacePropertyKeyPlaneWidth : @(width),
     IOSurfacePropertyKeyPlaneHeight : @(height),
     IOSurfacePropertyKeyPlaneBytesPerRow : @(width),
+    @"IOSurfacePlaneComponentBitDepths": @[@(8)],
+    @"IOSurfacePlaneComponentNames": @[@(5)],
+    @"IOSurfacePlaneComponentRanges": @[@(2)],
     IOSurfacePropertyKeyPlaneOffset : @(0),
     IOSurfacePropertyKeyPlaneSize: @(1920*1080),
     IOSurfacePropertyKeyBytesPerElement: @(1)
@@ -575,14 +608,17 @@ static void Uint8ArrayDelete(void* info, const void* data, size_t size) { delete
     IOSurfacePropertyKeyPlaneWidth : @(width/2),
     IOSurfacePropertyKeyPlaneHeight : @(height/2),
     IOSurfacePropertyKeyPlaneBytesPerRow : @(width),
+    @"IOSurfacePlaneComponentBitDepths": @[@(8), @(8)],
+    @"IOSurfacePlaneComponentNames": @[@(7), @(6)],
+    @"IOSurfacePlaneComponentRanges": @[@(2), @(2)],
     IOSurfacePropertyKeyPlaneOffset : @(1920*1080),
     IOSurfacePropertyKeyPlaneSize: @(1920*1080/2),
     IOSurfacePropertyKeyBytesPerElement: @(2)
   };
 
   IOSurface* surface = [[IOSurface alloc] initWithProperties:@{
-    IOSurfacePropertyKeyWidth : @(size.width),
-    IOSurfacePropertyKeyHeight : @(size.height),
+    IOSurfacePropertyKeyWidth : @(width),
+    IOSurfacePropertyKeyHeight : @(height),
     IOSurfacePropertyKeyPixelFormat : @(kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange),
     IOSurfacePropertyKeyBytesPerElement : @(4),
     IOSurfacePropertyKeyAllocSize : @(1920*1080 + 1920*1080/2),
@@ -601,14 +637,12 @@ static void Uint8ArrayDelete(void* info, const void* data, size_t size) { delete
 
   return [surface autorelease];
 }
-+ (IOSurface*)ioSurfaceYUV422WithSize:(NSSize)size
-                        flipped:(BOOL)drawingHandlerShouldBeCalledWithFlippedContext
-                 drawingHandler:(void (^)(NSRect dstRect))drawingHandler {
++ (IOSurface*)ioSurfaceYUV422 {
   int width = 1920;
   int height = 1080;
   IOSurface* surface = [[IOSurface alloc] initWithProperties:@{
-    IOSurfacePropertyKeyWidth : @(size.width),
-    IOSurfacePropertyKeyHeight : @(size.height),
+    IOSurfacePropertyKeyWidth : @(width),
+    IOSurfacePropertyKeyHeight : @(height),
     //IOSurfacePropertyKeyPixelFormat : @(kCVPixelFormatType_422YpCbCr8FullRange),
     IOSurfacePropertyKeyPixelFormat : @(kCVPixelFormatType_422YpCbCr8_yuvs),
     IOSurfacePropertyKeyBytesPerElement : @(2),
@@ -635,14 +669,12 @@ static void Uint8ArrayDelete(void* info, const void* data, size_t size) { delete
 
   return [surface autorelease];
 }
-+ (IOSurface*)ioSurfaceRGBWithSize:(NSSize)size
-                        flipped:(BOOL)drawingHandlerShouldBeCalledWithFlippedContext
-                 drawingHandler:(void (^)(NSRect dstRect))drawingHandler {
++ (IOSurface*)ioSurfaceRGB {
   int width = 1920;
   int height = 1080;
   IOSurface* surface = [[IOSurface alloc] initWithProperties:@{
-    IOSurfacePropertyKeyWidth : @(size.width),
-    IOSurfacePropertyKeyHeight : @(size.height),
+    IOSurfacePropertyKeyWidth : @(width),
+    IOSurfacePropertyKeyHeight : @(height),
     IOSurfacePropertyKeyPixelFormat : @(kCVPixelFormatType_32ARGB),
     IOSurfacePropertyKeyBytesPerElement : @(4),
     IOSurfacePropertyKeyAllocSize : @(1920*1080*4),
